@@ -6,6 +6,16 @@ branding:
   icon: 'shield'
   color: 'black'
 
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '15 20 * * 0'  # Adjust the cron schedule as needed
+
 inputs: 
   configfile:
     description: |
