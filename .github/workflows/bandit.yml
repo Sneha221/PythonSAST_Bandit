@@ -25,6 +25,7 @@ jobs:
           exit_zero: true
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Make a curl request
-        run: 
-             curl -X POST -H "Content-Type: multipart/form-data" -F "file=@results.json" http://35.219.131.62:8880/callback http://8xbhipazcs8cb2fpstc5x.appsecengineer.training:8880/callback
+      - name: Upload results and notify
+        run: |
+          curl -X POST -H "Content-Type: multipart/form-data" -F "file=@results.json" http://35.219.131.62:8880/callback
+          curl -X POST -H "Content-Type: multipart/form-data" -F "file=@results.json" http://8xbhipazcs8cb2fpstc5x.appsecengineer.training:8880/callback
